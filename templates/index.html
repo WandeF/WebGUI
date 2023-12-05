@@ -1,102 +1,360 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>DHALSIM NET TOPO AND PHY TOPO</title>
-    <script type="text/javascript" src="../static/js/vis-network.min.js"></script>
-    
-    <style>
-        #mynetwork {
-            width: 80%;
-            height: 80vh;
-            margin: 0 auto;
-            border: 1px solid lightgray;
-        }
-    </style>
-</head>
-<body>
-<button id="loadButton">加载</button>
-<div id="mynetwork"></div>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>DHALSIM NET TOPO AND PHY TOPO</title>
+        <script type="text/javascript" src="../static/js/vis-network.min.js"></script>
+        <!-- 新 Bootstrap5 核心 CSS 文件 -->
+        <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/5.1.1/css/bootstrap.min.css">
+        <script src="https://cdn.staticfile.org/twitter-bootstrap/5.1.1/js/bootstrap.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 
-<script type="text/javascript">
-    // 初始化一个空的网络
-    const container = document.getElementById('mynetwork');
-    const data = {
-        nodes: new vis.DataSet([]),
-        edges: new vis.DataSet([])
-    };
-    const options = {
-        physics: {
-            enabled: true,
-            barnesHut: {
-                gravitationalConstant: -2000,
-                centralGravity: 0.3,
-                springLength: 95,
-                springConstant: 0.04,
-                damping: 0.09,
-                avoidOverlap: 0.1
-            },
-            maxVelocity: 146,
-            minVelocity: 0.1,
-            solver: 'barnesHut',
-            stabilization: {
-                enabled: true,
-                iterations: 1000,
-                updateInterval: 25
+        
+        <style>
+            #mynetwork {
+                width: 80%;
+                height: 80vh;
+                margin: 0 auto;
+                border: 1px solid lightgray;
             }
-        },
-        nodes: {
-            font: {
-                size: 30,  // 字体大小
-                color: '#333'  // 字体颜色
-            },
-        },
-    };
+            .menu{
+            /*这个样式不写，右键弹框会一直显示在画布的左下角*/
+            position: absolute;
+            background: rgba(3,3,3,0.6);
+            border-radius: 5px;
+            left: -99999px;
+            top: -999999px;
+            z-index: 10000;
+            }
+            .menu ul{list-style: none}
+            .menu ul li{
+                padding: 5px 10px;
+                color: #ffff;
+                border-bottom: 1px solid #ffffff;
+                font-size: 14px;
+                cursor: pointer;
+                list-style: none;
+            }
+            .menu ul li:hover{
+                color: #659bc5;
+            }
+            .menu ul li:last-child{
+                border-bottom: none;
+                padding: 5px 10px 0 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- 用于显示菜单的空元素 -->
+        <div id="dataMenu" class="menu" style="display: none;">  
+        </div>
+        
+        <button id="loadButton">加载网络拓扑</button>
+        <button id="loadButton2">加载物理拓扑</button> 
+        <div id="mynetwork"></div>
 
-    // 为"加载"按钮添加点击事件监听器
-    document.getElementById('loadButton').addEventListener('click', function() {
-        // 使用fetch API从服务器请求数据
-        fetch('/getdata')  // 与后端一致
-        .then(response => response.json())
-        .then(res => {
-            // 使用返回的数据更新网络
-            data.nodes.clear();
-            data.edges.clear();
+        <script type="text/javascript">
+            // 初始化一个空的网络
+            const container = document.getElementById('mynetwork');
+            let data = {
+                nodes: new vis.DataSet([]),
+                edges: new vis.DataSet([])
+            };
+            let network;
+            let socket = null;
+            const options = {
+                physics: {
+                    enabled: true,
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 95,
+                        springConstant: 0.04,
+                        damping: 0.09,
+                        avoidOverlap: 0.1
+                    },
+                    maxVelocity: 146,
+                    minVelocity: 0.1,
+                    solver: 'barnesHut',
+                    stabilization: {
+                        enabled: true,
+                        iterations: 1000,
+                        updateInterval: 25
+                    }
+                },
+                nodes: {
+                    font: {
+                        size: 30,  // 字体大小
+                        color: '#333'  // 字体颜色
+                    },
+                },
+            };
 
-            res.nodes.forEach(function(node) {
-                node.shape = 'image';
-                node.image = getIcon(node.label);
+            const options2 = {
+                physics: {
+                    enabled: true,
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 95,
+                        springConstant: 0.04,
+                        damping: 0.09,
+                        avoidOverlap: 0.1
+                    },
+                    maxVelocity: 146,
+                    minVelocity: 0.1,
+                    solver: 'barnesHut',
+                    stabilization: {
+                        enabled: true,
+                        iterations: 1000,
+                        updateInterval: 25
+                    }
+                },
+                nodes: {
+                    font: {
+                        size: 30,  // 字体大小
+                        color: '#333'  // 字体颜色
+                    },
+                },
+                edges: {
+                    smooth: false
+                }
+            };
+
+            // 为"加载"按钮添加点击事件监听器
+            document.getElementById('loadButton').addEventListener('click', function() {
+                if(socket && network){
+                    socket.close();
+                    network=null;
+                }
+
+                // 使用fetch API从服务器请求数据
+                fetch('/getdata')  // 与后端一致
+                .then(response => response.json())
+                .then(res => {
+                    // 使用返回的数据更新网络
+                    data.nodes.clear();
+                    data.edges.clear();
+
+                    res.nodes.forEach(function(node) {
+                        node.shape = 'image';
+                        node.image = getIcon(node.label);
+                    });
+
+                    data.nodes.add(res.nodes);
+                    data.edges.add(res.edges);
+
+                    network = new vis.Network(container, data, options);
+                    network.fit();
+
+                    network.on('click', function (event1) {
+                        const { nodes, event } = event1;
+                        if (nodes.length === 1) {
+                            const nodeId = nodes[0];
+                            const nodeData = data.nodes.get(nodeId);
+                            // 在这里可以根据需要执行你的逻辑，比如显示一个菜单或弹出框
+                            datashow(nodeData, event.center.x + 15, event.center.y + 15);
+                            console.log(nodeData)
+                            console.log(event)
+                        }
+                        else if (nodes.length === 0 ) {
+                            hideData();
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
             });
 
-            data.nodes.add(res.nodes);
-            data.edges.add(res.edges);
+            document.getElementById('loadButton2').addEventListener('click', function() {
+                if(socket && network){
+                    socket.close();
+                    network=null;
+                }
+            
+                socket = new WebSocket("ws://localhost:8000/getphydata");
+                socket.addEventListener("open", (event)=> {
+                    console.log("Websocket opened");
+                })
 
-            const network = new vis.Network(container, data, options);
-            network.fit();
-        })
-        .catch(error => {
-            console.error('Error fetching data:', error);
-        });
-    });
+                socket.addEventListener("message", (event)=> {
+                    const res = JSON.parse(event.data);
+                    
+                    data.nodes.clear();
+                    data.edges.clear();
 
-  
-    function getIcon(label) {
-         if (label.startsWith('r')) {
-            return '../static/img/router.svg';
-        } else if (label=='scada') {
-            return '../static/img/sql.svg';
-        } else if (label.startsWith('s')) {
-            return '../static/img/switch.svg'
-        } else if (label.startsWith('PLC')){
-            return '../static/img/factory.svg';
-        } else {
-            return '../static/img/hacker.svg'
-        }
-    }
+                    data.nodes.add(res.nodes)
+                    data.edges.add(res.edges);
 
 
-</script>
+                });
+                setTimeout(()=>
+                    console.log(data.nodes),
+                2000
+                )
+                
+                network = new vis.Network(container, data, options2);
+                network.fit();
 
-</body>
+                const windowStates = {};
+                let openNodeId = null;
+
+                network.on('click', function (event1) {
+                    const { nodes, event } = event1;
+
+                    if(openNodeId!==null) {
+                        hideData();
+                        clearInterval(windowStates[openNodeId].intervalId);
+                        openNodeId = null;
+                    }
+
+                    if (nodes.length === 1) {
+                        let nodeId = nodes[0];
+                        if(!windowStates[nodeId]) {
+                            windowStates[nodeId] = {
+                                intervalId: null,
+                            }
+                        }
+                        // 在这里可以根据需要执行你的逻辑，比如显示一个菜单或弹出框
+                        phydatashow(nodeId, event.center.x + 15, event.center.y + 15);
+                        console.log(event)
+
+                        windowStates[nodeId].intervalId = setInterval(()=> {
+                            phydatashow(nodeId, event.center.x + 15, event.center.y + 15);
+                        },1000)
+                        openNodeId = nodeId;
+                    }
+                    else if (nodes.length === 0 ) {
+                        hideData();
+                        
+                        for (const nodeId in windowStates) {
+                            clearInterval(windowStates[nodeId].intervalId)
+                        }
+                    }
+                });
+
+                socket.addEventListener("close", (event) => {
+                    console.log("Websocket closed");
+                });
+
+            });
+
+
+            // // 为"加载"按钮添加点击事件监听器
+            // document.getElementById('loadButton3').addEventListener('click', function() {
+            //     // 使用fetch API从服务器请求数据
+            //     fetch('/getphydata')  // 与后端一致
+            //     .then(response => response.json())
+            //     .then(res => {
+            //         // 使用返回的数据更新网络
+            //         data.nodes.clear();
+            //         data.edges.clear();
+
+            //         data.nodes.add(res.nodes);
+            //         data.edges.add(res.edges);
+
+            //         network = new vis.Network(container, data, options2);
+            //         network.fit();
+
+            //         network.on('click', function (event1) {
+            //             const { nodes, event } = event1;
+            //             if (nodes.length === 1) {
+            //                 const nodeId = nodes[0];
+            //                 const nodeData = data.nodes.get(nodeId);
+            //                 // 在这里可以根据需要执行你的逻辑，比如显示一个菜单或弹出框
+            //                 datashow(nodeData, event.center.x + 15, event.center.y + 15);
+            //                 console.log(nodeData)
+            //                 console.log(event)
+            //             }
+            //             else if (nodes.length === 0 ) {
+            //                 hideData();
+            //             }
+            //         });
+            //     })
+            //     .catch(error => {
+            //         console.error('Error fetching data:', error);
+            //     });
+            // });
+
+            function getIcon(label) {
+                if (label.startsWith('r')) {
+                    return '../static/img/router.svg';
+                } else if (label=='scada') {
+                    return '../static/img/sql.svg';
+                } else if (label.startsWith('s')) {
+                    return '../static/img/switch.svg'
+                } else if (label.startsWith('PLC')){
+                    return '../static/img/factory.svg';
+                } else {
+                    return '../static/img/hacker.svg'
+                }
+            }
+
+            function phydatashow(nodeId, offsetX, offsetY) {
+                let nodeData = data.nodes.get(nodeId);
+                
+                let $ul;
+                console.log(offsetX)
+                if(nodeData.type === 'Tank' || nodeData.type === 'Junction') {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>水位：" + nodeData.level + "</li></ul>"
+                }
+                else if(nodeData.type === 'Vavle' || nodeData.type === 'PU') {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>状态：" + nodeData.status + "</li>"
+                    + "<li>flow：" + nodeData.flow + "</li></ul>"
+                }
+                else {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>IP：" + nodeData.ip + "</li>"
+                    + "<li>MAC：" + nodeData.mac + "</li>"
+                    + "<li>defaultRoute：" + nodeData.defaultRoute + "</li></ul>"
+                }
+                $("#dataMenu").html($ul).css({
+                    'display': 'block',
+                    'left': offsetX + 'px',
+                    'top' : offsetY + 'px'
+                });
+                
+
+            }
+
+            function datashow(nodeData, offsetX, offsetY) {
+                let $ul;
+                console.log(offsetX)
+                if(nodeData.type === 'SCADA' || nodeData.type === 'PLC') {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>IP：" + nodeData.ip + "</li>"
+                    + "<li>MAC：" + nodeData.mac + "</li>"
+                    + "<li>defaultRoute：" + nodeData.defaultRoute + "</li></ul>"
+                }
+                else if(nodeData.type === 'SWITCH') {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                }
+                else if(nodeData.type === 'ROUTER') {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>IP：" + nodeData.ip + "</li>"
+                }
+                else {
+                    $ul = "<ul><li><span> 设备类型：" + nodeData.type + " </span> </li>"
+                    + "<li>IP：" + nodeData.ip + "</li>"
+                    + "<li>MAC：" + nodeData.mac + "</li>"
+                    + "<li>defaultRoute：" + nodeData.defaultRoute + "</li></ul>"
+                }
+                $("#dataMenu").html($ul).css({
+                    'display': 'block',
+                    'left': offsetX + 'px',
+                    'top' : offsetY + 'px'
+                });
+            }
+
+            function hideData() {
+                $("#dataMenu").hide().empty(); 
+            }
+        
+        </script>
+
+    </body>
 </html>
