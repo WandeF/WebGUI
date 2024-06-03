@@ -9,7 +9,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'webgui = main:run_server',
+            'webgui = main_entry:run_server',
         ],
     },
 )
