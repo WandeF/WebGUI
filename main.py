@@ -1,3 +1,5 @@
+import webbrowser
+
 import pandas
 from tornado.web import Application
 from tornado.httpserver import HTTPServer
@@ -294,8 +296,11 @@ def run_server():
     server = HTTPServer(app)
     server.listen(8000)
     print('Server started at http://localhost:8000')
+    
+    webbrowser.open("http://localhost:8000")
     tornado.ioloop.IOLoop.current().start()
 
 
 if __name__ == "__main__":
     run_server()
+

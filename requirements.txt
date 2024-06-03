@@ -1,4 +1,4 @@
-PyYAML~=6.0
+PyYAML~=5.4.1
 tornado~=6.3.3
 setuptools~=68.2.0
 viswaternet~=1.1.0
