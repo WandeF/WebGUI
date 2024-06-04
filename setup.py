@@ -5,7 +5,7 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        'PyYAML~=5.4.1',
+        'PyYAML~=6.0.0',
         'tornado~=6.33',
         'setuptools~=68.2.0',
         'viswaternet~=1.1.0',
