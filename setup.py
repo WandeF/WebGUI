@@ -6,6 +6,11 @@ setup(
     packages=find_packages(),
     install_requires=[
         'tornado',
+        'PyYAML~=5.4.1',
+        'tornado~=6.33',
+        'setuptools~=68.2.0',
+        'viswaternet~=1.1.0',
+        'matplotilib~=3.5.0'
     ],
     entry_points={
         'console_scripts': [
