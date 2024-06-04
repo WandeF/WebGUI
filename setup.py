@@ -9,7 +9,8 @@ setup(
         'tornado~=6.3.3',
         'setuptools~=68.2.0',
         'viswaternet~=1.1.0',
-        'matplotlib~=3.5.0'
+        'matplotlib~=3.5.0',
+        'pillow>=8.3.2'
     ],
     entry_points={
         'console_scripts': [
