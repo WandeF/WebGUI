@@ -5,7 +5,6 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        'tornado',
         'PyYAML~=5.4.1',
         'tornado~=6.33',
         'setuptools~=68.2.0',
