@@ -7,7 +7,7 @@ sudo apt update
 sudo apt install -y python3 python3-pip
 
 # 安装您的项目
-sudo python3 -m pip install -e .
+sudo python3 -m pip install -e -i https://pypi.tuna.tsinghua.edu.cn/simple .
 
 printf "\nInstallation finished. You can now run your project by using \n\t<webgui>.\n"
 exit 0;
