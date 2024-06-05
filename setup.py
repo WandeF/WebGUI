@@ -7,7 +7,9 @@ setup(
     install_requires=[
         'PyYAML~=6.0.0',
         'tornado~=6.3.3',
-        'setuptools~=68.2.0',
+        'setuptools~=49.2.1',
+        'python-dateutil>=2.8.2',
+        'testresources',
         'viswaternet~=1.1.0',
         'matplotlib~=3.5.0',
         'pillow>=8.3.2'
